@@ -12,7 +12,9 @@ const jsonMessage = (msg) => {
 };
 
 function errorCheck(data, res) {
-  if (data.length > 0) {
+  if (data === null) {
+    res.send({ message: "The requested request did not return any data" });
+  } else if (data.length > 0) {
     res.send(data);
   } else {
     res.send({ message: "The requested request did not return any data" });
@@ -25,7 +27,7 @@ app.get("/api/eras", async (req, res) => {
 });
 
 app.get("/api/galleries", async (req, res) => {
-  const { data, error } = await supabase.from("eras").select(`*`);
+  const { data, error } = await supabase.from("galleries").select(`*`);
   res.send(data);
 });
 
@@ -34,7 +36,6 @@ app.get("/api/galleries/:ref", async (req, res) => {
     .from("galleries")
     .select(`*`)
     .eq("galleryId", req.params.ref);
-
   errorCheck(data, res);
 });
 
@@ -89,6 +90,11 @@ app.get("/api/genres/:ref", async (req, res) => {
 });
 
 app.get("/api/genres/painting/:ref", async (req, res) => {
+  if (isNaN(req.params.ref)) {
+    errorCheck(null, res);
+    return;
+  }
+
   const { data, error } = await supabase
     .from("paintinggenres")
     .select(`genres(*, eras(*))`)
@@ -106,13 +112,21 @@ app.get("/api/paintings/single/:ref", async (req, res) => {
 });
 
 app.get("/api/paintings/sort/:value/limit/:ref", async (req, res) => {
-  let sortBy = "title";
-  let max = 1000;
-  if (req.params.value === "year") {
+  let sortBy = req.params.value;
+  let max = req.params.ref;
+
+  if (sortBy === "year") {
     sortBy = "yearOfWork";
+  } else if (sortBy != "title") {
+    errorCheck(null, res);
+    return;
   }
-  if (req.params.ref > 0) {
-    max = req.params.ref;
+
+  if (isNaN(req.params.ref)) {
+    errorCheck(null, res);
+    return;
+  } else if (req.params.ref == 0) {
+    max = 1000;
   }
 
   const { data, error } = await supabase
@@ -120,7 +134,12 @@ app.get("/api/paintings/sort/:value/limit/:ref", async (req, res) => {
     .select(`*, artists(*), galleries(*)`)
     .limit(`${max}`)
     .order(`${sortBy}`, { ascending: true });
+
   errorCheck(data, res);
+});
+
+app.get("/api/paintings/sort/:value/limit", async (req, res) => {
+  errorCheck(null, res);
 });
 
 app.get(
@@ -128,7 +147,7 @@ app.get(
   async (req, res) => {
     let sortBy = "title";
     const skip = parseInt(req.params.ref2);
-    const end = parseInt(req.params.ref) + skip;
+    const end = parseInt(req.params.ref) + skip - 1;
 
     if (req.params.value === "year") {
       sortBy = "yearOfWork";
@@ -145,6 +164,10 @@ app.get(
     }
   }
 );
+
+app.get("/api/paintings/sort/:value/limit/:ref/skip", async (req, res) => {
+  errorCheck(null, res);
+});
 
 app.get("/api/paintings/search/:substring", async (req, res) => {
   const { data, error } = await supabase
@@ -232,9 +255,10 @@ app.get("/api/counts/topgenres/:ref", async (req, res) => {
     .from("genres")
     .select(`genreName, paintinggenres(count)`);
 
-  data.filter((a) => a.paintinggenres[0].count > parseInt(req.params.ref));
-  data.sort((a, b) => b.paintinggenres[0].count - a.paintinggenres[0].count);
-  errorCheck(data, res);
+  let filteredData = data
+    .filter((a) => a.paintinggenres[0].count > parseInt(req.params.ref))
+    .sort((a, b) => b.paintinggenres[0].count - a.paintinggenres[0].count);
+  errorCheck(filteredData, res);
 });
 
 app.listen(8080, () => {
