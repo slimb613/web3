@@ -237,7 +237,6 @@ app.get("/api/counts/topgenres/:ref", async (req, res) => {
   errorCheck(data, res);
 });
 
-let port = process.env.PORT;
-app.listen(port, () => {
+app.listen(8080, () => {
   console.log("listening on port 8080");
 });
